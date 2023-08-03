@@ -3,6 +3,11 @@
 import argparse
 import glob
 import os
+import mlflow
+
+from xgboost import XGBClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
 
 import pandas as pd
 
@@ -12,7 +17,7 @@ from sklearn.linear_model import LogisticRegression
 # define functions
 def main(args):
     # TO DO: enable autologging
-
+    mlflow.autolog()
 
     # read data
     df = get_csvs_df(args.training_data)
@@ -23,6 +28,11 @@ def main(args):
     # train model
     train_model(args.reg_rate, X_train, X_test, y_train, y_test)
 
+    model = XGBClassifier(use_label_encoder=False, eval_metric="logloss")
+    model.fit(X_train, y_train, eval_set=[X_test, y_test], verbose=False)
+    y_pred = model.predict(X_test)
+    accuracy = accuracy_score(y_test, y_pred)
+    return accuracy
 
 def get_csvs_df(path):
     if not os.path.exists(path):
@@ -34,8 +44,24 @@ def get_csvs_df(path):
 
 
 # TO DO: add function to split data
+def split_data(df):
+    X = df.drop('Y', axis=1).values
+    y = df['Y'].values
 
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=0)
+    data = {"train": {"X": X_train, "y": y_train},
+            "test": {"X": X_test, "y": y_test}}
+    return data
 
+def get_csvs_df(path)
+    if not os.path.exists(path):
+        raise RuntimeError(f"Path not accessible or nonexisting: {path}")
+    csv_files = glob.glob(f"{path}/*.csv")
+    if not csv_files:
+        raise RuntimeError(f"No csv files found in location: {path}")
+    return pd.concat((pd.read_csv(f) for f in csv_files), sort=False)
+    
 def train_model(reg_rate, X_train, X_test, y_train, y_test):
     # train model
     LogisticRegression(C=1/reg_rate, solver="liblinear").fit(X_train, y_train)
